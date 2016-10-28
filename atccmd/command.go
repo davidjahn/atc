@@ -183,6 +183,7 @@ func (cmd *ATCCommand) Runner(args []string) (ifrit.Runner, error) {
 		dbResourceTypeFactory,
 		dbResourceConfigFactory,
 		dbVolumeFactory,
+		dbWorkerFactory,
 	)
 
 	resourceFetcher := resourceFetcherFactory.FetcherFor(workerClient)
@@ -670,6 +671,7 @@ func (cmd *ATCCommand) constructWorkerPool(
 	dbResourceTypeFactory dbng.ResourceTypeFactory,
 	dbResourceConfigFactory dbng.ResourceConfigFactory,
 	dbVolumeFactory *dbng.VolumeFactory,
+	dbWorkerFactory dbng.WorkerFactory,
 ) worker.Client {
 	return worker.NewPool(
 		worker.NewDBWorkerProvider(
@@ -684,6 +686,7 @@ func (cmd *ATCCommand) constructWorkerPool(
 			dbResourceConfigFactory,
 			dbVolumeFactory,
 			pipelineDBFactory,
+			dbWorkerFactory,
 		),
 	)
 }
