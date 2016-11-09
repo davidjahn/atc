@@ -375,4 +375,30 @@ var _ = Describe("Workers API", func() {
 			})
 		})
 	})
+
+	FDescribe("PUT /api/v1/workers/:worker_name/land", func() {
+		var response *http.Response
+
+		JustBeforeEach(func() {
+			req, err := http.NewRequest("PUT", server.URL+"/api/v1/workers/some-worker/land", nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			response, err = client.Do(req)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		Context("when not authenticated", func() {
+			BeforeEach(func() {
+				authValidator.IsAuthenticatedReturns(false)
+			})
+
+			It("returns 401", func() {
+				Expect(response.StatusCode).To(Equal(http.StatusUnauthorized))
+			})
+
+			It("does not land the worker", func() {
+				Expect(dbWorkerFactory.LandWorkerCallCount()).To(BeZero())
+			})
+		})
+	})
 })

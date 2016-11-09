@@ -21,6 +21,7 @@ type WorkerFactory interface {
 	StallUnresponsiveWorkers() ([]*Worker, error)
 	SaveWorker(worker atc.Worker, ttl time.Duration) (*Worker, error)
 	SaveTeamWorker(worker atc.Worker, team *Team, ttl time.Duration) (*Worker, error)
+	LandWorker(name string) error
 }
 
 type workerFactory struct {
@@ -239,6 +240,11 @@ func scanWorker(row scannable) (*Worker, error) {
 		return nil, err
 	}
 	return &worker, nil
+}
+
+func (f *workerFactory) LandWorker(name string) error {
+	panic("something")
+	return nil
 }
 
 func (f *workerFactory) StallWorker(name string) (*Worker, error) {
