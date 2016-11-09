@@ -371,4 +371,16 @@ var _ = Describe("WorkerFactory", func() {
 			})
 		})
 	})
+
+	Describe("LandWorkers", func() {
+		BeforeEach(func() {
+			_, err = workerFactory.SaveWorker(atcWorker, 0)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("marks the worker as 'landing'", func() {
+			err = workerFactory.LandWorkers("some-name")
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
 })

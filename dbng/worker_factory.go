@@ -243,7 +243,28 @@ func scanWorker(row scannable) (*Worker, error) {
 }
 
 func (f *workerFactory) LandWorker(name string) error {
-	panic("something")
+	tx, err := f.conn.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	err = psql.Update("workers").
+		SetMap(map[string]interface{}{
+			"state":   string(WorkerStateLanding),
+		}).
+		Where(sq.Eq{"name": name}).
+		RunWith(tx).
+		Exec()
+	if err != nil {
+		return false, err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return false, err
+	}
+
 	return nil
 }
 
