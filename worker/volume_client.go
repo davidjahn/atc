@@ -255,7 +255,6 @@ func (c *volumeClient) findOrCreateVolume(
 		if !bcVolumeFound {
 			bcVolume, err = c.baggageclaimClient.CreateVolume(
 				logger.Session("create-volume"),
-				creatingVolume.Handle(),
 				volumeSpec.baggageclaimVolumeSpec(),
 			)
 			if err != nil {

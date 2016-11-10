@@ -65,47 +65,10 @@ var _ = Describe("WorkerFactory", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("removes old worker resource type", func() {
-				atcWorker.ResourceTypes = []atc.WorkerResourceType{
-					{
-						Type:    "other-resource-type",
-						Image:   "other-image",
-						Version: "other-version",
-					},
-				}
-
+			It("fails to save worker", func() {
 				_, err = workerFactory.SaveWorker(atcWorker, 5*time.Minute)
-				Expect(err).NotTo(HaveOccurred())
-
-				tx, err := dbConn.Begin()
-				Expect(err).NotTo(HaveOccurred())
-				defer tx.Rollback()
-
-				var count int
-				err = psql.Select("count(*)").
-					From("worker_base_resource_types").
-					Where(sq.Eq{"worker_name": "some-name"}).
-					RunWith(tx).
-					QueryRow().Scan(&count)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(count).To(Equal(1))
+				Expect(err).To(HaveOccurred())
 			})
-
-			Context("the worker is in stalled state", func() {
-				BeforeEach(func() {
-					_, err = workerFactory.StallWorker(worker.Name)
-					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("repopulates the garden address", func() {
-					savedWorker, err := workerFactory.SaveWorker(atcWorker, 5*time.Minute)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(savedWorker.Name).To(Equal("some-name"))
-					Expect(*savedWorker.GardenAddr).To(Equal("some-garden-addr"))
-					Expect(savedWorker.State).To(Equal(dbng.WorkerStateRunning))
-				})
-			})
-
 		})
 
 		Context("no worker with same name exists", func() {
@@ -160,13 +123,9 @@ var _ = Describe("WorkerFactory", func() {
 						_, err := workerFactory.SaveTeamWorker(atcWorker, team, 5*time.Minute)
 						Expect(err).NotTo(HaveOccurred())
 					})
-					It("overwrites all the data", func() {
-						atcWorker.GardenAddr = "new-garden-addr"
-						savedWorker, err := workerFactory.SaveTeamWorker(atcWorker, team, 5*time.Minute)
-						Expect(err).NotTo(HaveOccurred())
-						Expect(savedWorker.Name).To(Equal("some-name"))
-						Expect(*savedWorker.GardenAddr).To(Equal("new-garden-addr"))
-						Expect(savedWorker.State).To(Equal(dbng.WorkerStateRunning))
+					It("fails to save team worker", func() {
+						_, err := workerFactory.SaveTeamWorker(atcWorker, team, 5*time.Minute)
+						Expect(err).To(HaveOccurred())
 					})
 				})
 				Context("the team_id of the new worker is different", func() {

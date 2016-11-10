@@ -451,34 +451,7 @@ func (f *workerFactory) saveWorker(worker atc.Worker, team *Team, ttl time.Durat
 			return nil, err
 		}
 	} else {
-
-		if (oldTeamID.Valid == (teamID == nil)) ||
-			(oldTeamID.Valid && (*teamID != int(oldTeamID.Int64))) {
-			return nil, errors.New("update-of-other-teams-worker-not-allowed")
-		}
-
-		_, err = psql.Update("workers").
-			Set("addr", worker.GardenAddr).
-			Set("expires", sq.Expr(expires)).
-			Set("active_containers", worker.ActiveContainers).
-			Set("resource_types", resourceTypes).
-			Set("tags", tags).
-			Set("platform", worker.Platform).
-			Set("baggageclaim_url", worker.BaggageclaimURL).
-			Set("http_proxy_url", worker.HTTPProxyURL).
-			Set("https_proxy_url", worker.HTTPSProxyURL).
-			Set("no_proxy", worker.NoProxy).
-			Set("name", worker.Name).
-			Set("start_time", worker.StartTime).
-			Set("state", string(WorkerStateRunning)).
-			Where(sq.Eq{
-				"name": worker.Name,
-			}).
-			RunWith(tx).
-			Exec()
-		if err != nil {
-			return nil, err
-		}
+		return nil, errors.New("worker-name-already-registered")
 	}
 
 	savedWorker := &Worker{
