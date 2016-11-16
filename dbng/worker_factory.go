@@ -326,7 +326,7 @@ func (f *workerFactory) HeartbeatWorker(worker atc.Worker, ttl time.Duration) (*
 	err = psql.Update("workers").
 		Set("expires", sq.Expr(expires)).
 		Set("active_containers", worker.ActiveContainers).
-		Set("state", sq.Expr("(" + cSql + ")")).
+		Set("state", sq.Expr("("+cSql+")")).
 		Where(sq.Eq{"name": worker.Name}).
 		Suffix("RETURNING name, state, expires, active_containers").
 		RunWith(tx).
