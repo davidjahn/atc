@@ -22,6 +22,7 @@ type VolumeFactory interface {
 	FindResourceCacheVolume(*Worker, *UsedResourceCache) (CreatingVolume, CreatedVolume, error)
 	FindResourceCacheInitializedVolume(*Worker, *UsedResourceCache) (CreatedVolume, bool, error)
 	CreateResourceCacheVolume(*Worker, *UsedResourceCache) (CreatingVolume, error)
+	CreateResourceCacheVolumeWithParent(*Worker, *UsedResourceCache, string) (CreatingVolume, error)
 
 	FindVolumesForContainer(containerID int) ([]CreatedVolume, error)
 	GetOrphanedVolumes() ([]CreatedVolume, []DestroyingVolume, error)
@@ -98,6 +99,25 @@ func (factory *volumeFactory) CreateResourceCacheVolume(worker *Worker, resource
 
 	defer tx.Rollback()
 	return factory.createVolume(tx, nil, worker, map[string]interface{}{"resource_cache_id": resourceCache.ID})
+}
+
+func (factory *volumeFactory) CreateResourceCacheVolumeWithParent(worker *Worker, resourceCache *UsedResourceCache, parentHandle string) (CreatingVolume, error) {
+	tx, err := factory.conn.Begin()
+	if err != nil {
+		return nil, err
+	}
+
+	parentIdSubquery, _, err := sq.
+		Select("id").
+		From("volumes").
+		Where(sq.Expr("handle = '" + parentHandle + "'")).
+		ToSql()
+
+	defer tx.Rollback()
+	return factory.createVolume(tx, nil, worker, map[string]interface{}{
+		"resource_cache_id": resourceCache.ID,
+		"parent_id":         "(" + parentIdSubquery + ")",
+	})
 }
 
 func (factory *volumeFactory) CreateBaseResourceTypeVolume(team *Team, worker *Worker, ubrt *UsedBaseResourceType) (CreatingVolume, error) {

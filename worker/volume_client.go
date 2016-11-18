@@ -141,9 +141,15 @@ func (c *volumeClient) FindOrCreateVolumeForResourceCache(
 			return c.dbVolumeFactory.FindResourceCacheVolume(c.dbWorker, usedResourceCache)
 		},
 		func() (dbng.CreatingVolume, error) {
-			v, err := c.dbVolumeFactory.CreateResourceCacheVolume(c.dbWorker, usedResourceCache)
-			if err != nil {
-				return nil, err
+			var v dbng.CreatingVolume
+			var err error
+			if cowStrategy, ok := volumeSpec.Strategy.(ContainerRootFSStrategy); ok {
+				v, err = c.dbVolumeFactory.CreateResourceCacheVolumeWithParent(c.dbWorker, usedResourceCache, cowStrategy.Parent.Handle())
+			} else {
+				v, err = c.dbVolumeFactory.CreateResourceCacheVolume(c.dbWorker, usedResourceCache)
+				if err != nil {
+					return nil, err
+				}
 			}
 
 			logger.Debug("created-volume-for-resource-cache", lager.Data{"handle": v.Handle()})

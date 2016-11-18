@@ -97,6 +97,17 @@ type FakeVolumeFactory struct {
 		result1 dbng.CreatingVolume
 		result2 error
 	}
+	CreateResourceCacheVolumeWithParentStub        func(*dbng.Worker, *dbng.UsedResourceCache, string) (dbng.CreatingVolume, error)
+	createResourceCacheVolumeWithParentMutex       sync.RWMutex
+	createResourceCacheVolumeWithParentArgsForCall []struct {
+		arg1 *dbng.Worker
+		arg2 *dbng.UsedResourceCache
+		arg3 string
+	}
+	createResourceCacheVolumeWithParentReturns struct {
+		result1 dbng.CreatingVolume
+		result2 error
+	}
 	FindVolumesForContainerStub        func(containerID int) ([]dbng.CreatedVolume, error)
 	findVolumesForContainerMutex       sync.RWMutex
 	findVolumesForContainerArgsForCall []struct {
@@ -417,6 +428,42 @@ func (fake *FakeVolumeFactory) CreateResourceCacheVolumeReturns(result1 dbng.Cre
 	}{result1, result2}
 }
 
+func (fake *FakeVolumeFactory) CreateResourceCacheVolumeWithParent(arg1 *dbng.Worker, arg2 *dbng.UsedResourceCache, arg3 string) (dbng.CreatingVolume, error) {
+	fake.createResourceCacheVolumeWithParentMutex.Lock()
+	fake.createResourceCacheVolumeWithParentArgsForCall = append(fake.createResourceCacheVolumeWithParentArgsForCall, struct {
+		arg1 *dbng.Worker
+		arg2 *dbng.UsedResourceCache
+		arg3 string
+	}{arg1, arg2, arg3})
+	fake.recordInvocation("CreateResourceCacheVolumeWithParent", []interface{}{arg1, arg2, arg3})
+	fake.createResourceCacheVolumeWithParentMutex.Unlock()
+	if fake.CreateResourceCacheVolumeWithParentStub != nil {
+		return fake.CreateResourceCacheVolumeWithParentStub(arg1, arg2, arg3)
+	} else {
+		return fake.createResourceCacheVolumeWithParentReturns.result1, fake.createResourceCacheVolumeWithParentReturns.result2
+	}
+}
+
+func (fake *FakeVolumeFactory) CreateResourceCacheVolumeWithParentCallCount() int {
+	fake.createResourceCacheVolumeWithParentMutex.RLock()
+	defer fake.createResourceCacheVolumeWithParentMutex.RUnlock()
+	return len(fake.createResourceCacheVolumeWithParentArgsForCall)
+}
+
+func (fake *FakeVolumeFactory) CreateResourceCacheVolumeWithParentArgsForCall(i int) (*dbng.Worker, *dbng.UsedResourceCache, string) {
+	fake.createResourceCacheVolumeWithParentMutex.RLock()
+	defer fake.createResourceCacheVolumeWithParentMutex.RUnlock()
+	return fake.createResourceCacheVolumeWithParentArgsForCall[i].arg1, fake.createResourceCacheVolumeWithParentArgsForCall[i].arg2, fake.createResourceCacheVolumeWithParentArgsForCall[i].arg3
+}
+
+func (fake *FakeVolumeFactory) CreateResourceCacheVolumeWithParentReturns(result1 dbng.CreatingVolume, result2 error) {
+	fake.CreateResourceCacheVolumeWithParentStub = nil
+	fake.createResourceCacheVolumeWithParentReturns = struct {
+		result1 dbng.CreatingVolume
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *FakeVolumeFactory) FindVolumesForContainer(containerID int) ([]dbng.CreatedVolume, error) {
 	fake.findVolumesForContainerMutex.Lock()
 	fake.findVolumesForContainerArgsForCall = append(fake.findVolumesForContainerArgsForCall, struct {
@@ -532,6 +579,8 @@ func (fake *FakeVolumeFactory) Invocations() map[string][][]interface{} {
 	defer fake.findResourceCacheInitializedVolumeMutex.RUnlock()
 	fake.createResourceCacheVolumeMutex.RLock()
 	defer fake.createResourceCacheVolumeMutex.RUnlock()
+	fake.createResourceCacheVolumeWithParentMutex.RLock()
+	defer fake.createResourceCacheVolumeWithParentMutex.RUnlock()
 	fake.findVolumesForContainerMutex.RLock()
 	defer fake.findVolumesForContainerMutex.RUnlock()
 	fake.getOrphanedVolumesMutex.RLock()
