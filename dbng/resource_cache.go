@@ -120,9 +120,7 @@ func (cache ResourceCache) findOrCreate(tx Tx, resourceConfig *UsedResourceConfi
 				return nil, ErrResourceCacheConfigDisappeared
 			}
 
-			if pqErr, ok := err.(*pq.Error); !ok || pqErr.Code.Name() != "unique_violation" {
-				return nil, err
-			}
+			return nil, err
 		}
 	}
 

@@ -16,6 +16,7 @@ import (
 	"code.cloudfoundry.org/lager"
 	"github.com/concourse/atc"
 	"github.com/concourse/atc/db"
+	"github.com/concourse/atc/db/lock"
 	"github.com/concourse/atc/dbng"
 	"github.com/concourse/baggageclaim"
 )
@@ -94,7 +95,7 @@ type GardenWorkerDB interface {
 	UpdateExpiresAtOnContainer(handle string, ttl time.Duration) error
 	ReapContainer(string) error
 	GetPipelineByID(pipelineID int) (db.SavedPipeline, error)
-	AcquireVolumeCreatingLock(lager.Logger, int) (db.Lock, bool, error)
+	AcquireVolumeCreatingLock(lager.Logger, int) (lock.Lock, bool, error)
 }
 
 type gardenWorker struct {

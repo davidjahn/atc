@@ -96,6 +96,15 @@ var _ = Describe("ResourceCacheFactory", func() {
 			Expect(err).NotTo(HaveOccurred())
 			defer tx.Rollback()
 
+			// var id int
+			// _ = psql.Insert("resource_caches").
+			// 	Columns("resource_config_id").
+			// 	Values(100000).
+			// 	Suffix("RETURNING id").
+			// 	RunWith(tx).
+			// 	QueryRow().
+			// 	Scan(&id)
+
 			rows, err := psql.Select("a.version, a.params_hash, o.source_hash, b.name").
 				From("resource_caches a").
 				LeftJoin("resource_configs o ON a.resource_config_id = o.id").

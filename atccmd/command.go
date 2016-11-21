@@ -24,6 +24,7 @@ import (
 	"github.com/concourse/atc/builds"
 	"github.com/concourse/atc/config"
 	"github.com/concourse/atc/db"
+	"github.com/concourse/atc/db/lock"
 	"github.com/concourse/atc/db/migrations"
 	"github.com/concourse/atc/dbng"
 	"github.com/concourse/atc/engine"
@@ -156,7 +157,7 @@ func (cmd *ATCCommand) Runner(args []string) (ifrit.Runner, error) {
 	if err != nil {
 		return nil, err
 	}
-	lockFactory := db.NewLockFactory(lockConn)
+	lockFactory := lock.NewLockFactory(lockConn)
 
 	listener := pq.NewListener(cmd.PostgresDataSource, time.Second, time.Minute, nil)
 	bus := db.NewNotificationsBus(listener, dbConn)

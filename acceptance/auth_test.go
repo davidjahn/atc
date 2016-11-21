@@ -17,6 +17,7 @@ import (
 	"github.com/concourse/atc"
 	"github.com/concourse/atc/db"
 	"github.com/concourse/atc/db/dbfakes"
+	"github.com/concourse/atc/db/lock"
 )
 
 var _ = Describe("Auth", func() {
@@ -34,7 +35,7 @@ var _ = Describe("Auth", func() {
 		fakeConnector := new(dbfakes.FakeConnector)
 		retryableConn := &db.RetryableConn{Connector: fakeConnector, Conn: pgxConn}
 
-		lockFactory := db.NewLockFactory(retryableConn)
+		lockFactory := lock.NewLockFactory(retryableConn)
 		sqlDB = db.NewSQL(dbConn, bus, lockFactory)
 
 		err := sqlDB.DeleteTeamByName(atc.DefaultPipelineName)
