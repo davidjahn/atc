@@ -1,13 +1,12 @@
 package lock
 
 import (
+	"database/sql"
 	"fmt"
 	"hash/crc32"
 	"strconv"
 	"strings"
 	"sync"
-
-	"github.com/jackc/pgx"
 
 	"code.cloudfoundry.org/lager"
 )
@@ -63,8 +62,8 @@ type lockFactory struct {
 }
 
 type DBConn interface {
-	Exec(sql string, arguments ...interface{}) (pgx.CommandTag, error)
-	QueryRow(sql string, args ...interface{}) *pgx.Row
+	Exec(sql string, arguments ...interface{}) (sql.Result, error)
+	QueryRow(sql string, args ...interface{}) *sql.Row
 }
 
 func NewLockFactory(conn DBConn) LockFactory {
