@@ -398,7 +398,6 @@ var _ = Describe("VolumeClient", func() {
 	Describe("LookupVolume", func() {
 		var handle string
 
-
 		var found bool
 		var lookupErr error
 
