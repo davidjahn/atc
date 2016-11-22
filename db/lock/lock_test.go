@@ -8,7 +8,6 @@ import (
 	"code.cloudfoundry.org/lager/lagertest"
 	"github.com/concourse/atc"
 	"github.com/concourse/atc/db"
-	"github.com/concourse/atc/db/dbfakes"
 	"github.com/concourse/atc/db/lock"
 	"github.com/concourse/atc/db/lock/lockfakes"
 	"github.com/jackc/pgx"
@@ -22,7 +21,7 @@ var _ = Describe("Locks", func() {
 	var (
 		dbConn            db.Conn
 		listener          *pq.Listener
-		fakeConnector     *dbfakes.FakeConnector
+		fakeConnector     *lockfakes.FakeConnector
 		pgxConn           *pgx.Conn
 		pipelineDBFactory db.PipelineDBFactory
 		teamDBFactory     db.TeamDBFactory
@@ -48,8 +47,8 @@ var _ = Describe("Locks", func() {
 		logger = lagertest.NewTestLogger("test")
 
 		pgxConn = postgresRunner.OpenPgx()
-		fakeConnector = new(dbfakes.FakeConnector)
-		retryableConn := &db.RetryableConn{Connector: fakeConnector, Conn: pgxConn}
+		fakeConnector = new(lockfakes.FakeConnector)
+		retryableConn := &lock.RetryableConn{Connector: fakeConnector, Conn: pgxConn}
 
 		lockFactory = lock.NewLockFactory(retryableConn)
 		sqlDB = db.NewSQL(dbConn, bus, lockFactory)
@@ -171,7 +170,7 @@ var _ = Describe("Locks", func() {
 
 			BeforeEach(func() {
 				pgxConn2 := postgresRunner.OpenPgx()
-				retryableConn2 := &db.RetryableConn{Connector: fakeConnector, Conn: pgxConn2}
+				retryableConn2 := &lock.RetryableConn{Connector: fakeConnector, Conn: pgxConn2}
 				lockFactory2 = lock.NewLockFactory(retryableConn2)
 			})
 
