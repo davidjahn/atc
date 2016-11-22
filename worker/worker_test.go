@@ -16,7 +16,6 @@ import (
 	. "github.com/concourse/atc/worker"
 	wfakes "github.com/concourse/atc/worker/workerfakes"
 
-	"github.com/concourse/baggageclaim/baggageclaimfakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -24,8 +23,6 @@ import (
 var _ = Describe("Worker", func() {
 	var (
 		logger                       *lagertest.TestLogger
-
-		fakeBaggageclaimClient       *baggageclaimfakes.FakeClient
 		fakeVolumeClient             *wfakes.FakeVolumeClient
 		fakeImageFactory             *wfakes.FakeImageFactory
 		fakeImage                    *wfakes.FakeImage
@@ -36,7 +33,6 @@ var _ = Describe("Worker", func() {
 		fakeDBContainerFactory       *wfakes.FakeDBContainerFactory
 		fakeDBResourceCacheFactory   *dbngfakes.FakeResourceCacheFactory
 		fakeResourceConfigFactory    *dbngfakes.FakeResourceConfigFactory
-		fakeDBVolumeFactory          *dbngfakes.FakeVolumeFactory
 		fakeContainerProviderFactory *wfakes.FakeContainerProviderFactory
 		fakeContainerProvider        *wfakes.FakeContainerProvider
 		activeContainers             int
@@ -49,16 +45,12 @@ var _ = Describe("Worker", func() {
 		httpProxyURL                 string
 		httpsProxyURL                string
 		noProxy                      string
-		origUptime                   time.Duration
 		workerUptime                 uint64
-
 		gardenWorker Worker
 	)
 
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
-		// fakeGardenClient = new(gfakes.FakeClient)
-		fakeBaggageclaimClient = new(baggageclaimfakes.FakeClient)
 		fakeVolumeClient = new(wfakes.FakeVolumeClient)
 		fakeImageFactory = new(wfakes.FakeImageFactory)
 		fakeImage = new(wfakes.FakeImage)
@@ -84,7 +76,6 @@ var _ = Describe("Worker", func() {
 		fakeDBContainerFactory = new(wfakes.FakeDBContainerFactory)
 		fakeDBResourceCacheFactory = new(dbngfakes.FakeResourceCacheFactory)
 		fakeResourceConfigFactory = new(dbngfakes.FakeResourceConfigFactory)
-		fakeDBVolumeFactory = new(dbngfakes.FakeVolumeFactory)
 		fakeWorkerProvider = new(wfakes.FakeWorkerProvider)
 		fakeContainerProvider = new(wfakes.FakeContainerProvider)
 		fakeContainerProviderFactory = new(wfakes.FakeContainerProviderFactory)
@@ -116,7 +107,6 @@ var _ = Describe("Worker", func() {
 			noProxy,
 		)
 
-		origUptime = gardenWorker.Uptime()
 		fakeClock.IncrementBySeconds(workerUptime)
 	})
 
@@ -512,85 +502,7 @@ var _ = Describe("Worker", func() {
 				})
 			})
 
-			// Describe("the found container", func() {
-			// 	It("can be destroyed", func() {
-			// 		err := foundContainer.Destroy()
-			// 		Expect(err).NotTo(HaveOccurred())
-			//
-			// 		By("destroying via garden")
-			// 		// Expect(fakeGardenClient.DestroyCallCount()).To(Equal(1))
-			// 		// Expect(fakeGardenClient.DestroyArgsForCall(0)).To(Equal("provider-handle"))
-			//
-			// 		By("no longer heartbeating")
-			// 		fakeClock.Increment(30 * time.Second)
-			// 		Consistently(fakeContainer.SetGraceTimeCallCount).Should(Equal(1))
-			// 	})
-			//
-			// 	It("performs an initial heartbeat synchronously", func() {
-			// 		Expect(fakeContainer.SetGraceTimeCallCount()).To(Equal(1))
-			// 		Expect(fakeGardenWorkerDB.UpdateExpiresAtOnContainerCallCount()).To(Equal(1))
-			// 	})
-			//
-			// 	Describe("every 30 seconds", func() {
-			// 		It("heartbeats to the database and the container", func() {
-			// 			fakeClock.Increment(30 * time.Second)
-			//
-			// 			Eventually(fakeContainer.SetGraceTimeCallCount).Should(Equal(2))
-			// 			Expect(fakeContainer.SetGraceTimeArgsForCall(1)).To(Equal(5 * time.Minute))
-			//
-			// 			Eventually(fakeGardenWorkerDB.UpdateExpiresAtOnContainerCallCount).Should(Equal(2))
-			// 			handle, interval := fakeGardenWorkerDB.UpdateExpiresAtOnContainerArgsForCall(1)
-			// 			Expect(handle).To(Equal("provider-handle"))
-			// 			Expect(interval).To(Equal(5 * time.Minute))
-			//
-			// 			fakeClock.Increment(30 * time.Second)
-			//
-			// 			Eventually(fakeContainer.SetGraceTimeCallCount).Should(Equal(3))
-			// 			Expect(fakeContainer.SetGraceTimeArgsForCall(2)).To(Equal(5 * time.Minute))
-			//
-			// 			Eventually(fakeGardenWorkerDB.UpdateExpiresAtOnContainerCallCount).Should(Equal(3))
-			// 			handle, interval = fakeGardenWorkerDB.UpdateExpiresAtOnContainerArgsForCall(2)
-			// 			Expect(handle).To(Equal("provider-handle"))
-			// 			Expect(interval).To(Equal(5 * time.Minute))
-			// 		})
-			// 	})
-			//
-			// 	Describe("releasing", func() {
-			// 		It("sets a final ttl on the container and stops heartbeating", func() {
-			// 			foundContainer.Release(FinalTTL(30 * time.Minute))
-			//
-			// 			Expect(fakeContainer.SetGraceTimeCallCount()).Should(Equal(2))
-			// 			Expect(fakeContainer.SetGraceTimeArgsForCall(1)).To(Equal(30 * time.Minute))
-			//
-			// 			Expect(fakeGardenWorkerDB.UpdateExpiresAtOnContainerCallCount()).Should(Equal(2))
-			// 			handle, interval := fakeGardenWorkerDB.UpdateExpiresAtOnContainerArgsForCall(1)
-			// 			Expect(handle).To(Equal("provider-handle"))
-			// 			Expect(interval).To(Equal(30 * time.Minute))
-			//
-			// 			fakeClock.Increment(30 * time.Second)
-			//
-			// 			Consistently(fakeContainer.SetGraceTimeCallCount).Should(Equal(2))
-			// 			Consistently(fakeGardenWorkerDB.UpdateExpiresAtOnContainerCallCount).Should(Equal(2))
-			// 		})
-			//
-			// 		Context("with no final ttl", func() {
-			// 			It("does not perform a final heartbeat", func() {
-			// 				foundContainer.Release(nil)
-			//
-			// 				Consistently(fakeContainer.SetGraceTimeCallCount).Should(Equal(1))
-			// 				Consistently(fakeGardenWorkerDB.UpdateExpiresAtOnContainerCallCount).Should(Equal(1))
-			// 			})
-			// 		})
-			// 	})
-			//
-			// 	It("can be released multiple times", func() {
-			// 		foundContainer.Release(nil)
-			//
-			// 		Expect(func() {
-			// 			foundContainer.Release(nil)
-			// 		}).NotTo(Panic())
-			// 	})
-			// })
+
 		})
 
 		Context("when the container cannot be found", func() {

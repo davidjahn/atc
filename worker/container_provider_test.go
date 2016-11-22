@@ -2,11 +2,11 @@ package worker_test
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"strings"
 	"time"
-	"fmt"
 
 	"code.cloudfoundry.org/clock/fakeclock"
 	"code.cloudfoundry.org/garden"
@@ -14,11 +14,11 @@ import (
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagertest"
 	"github.com/concourse/atc"
-	"github.com/concourse/baggageclaim"
 	"github.com/concourse/atc/dbng"
 	"github.com/concourse/atc/dbng/dbngfakes"
 	. "github.com/concourse/atc/worker"
 	wfakes "github.com/concourse/atc/worker/workerfakes"
+	"github.com/concourse/baggageclaim"
 	"github.com/concourse/baggageclaim/baggageclaimfakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -45,10 +45,13 @@ var _ = Describe("ContainerProvider", func() {
 
 		containerProvider        ContainerProvider
 		containerProviderFactory ContainerProviderFactory
+		outputPaths              map[string]string
+		inputs                   []VolumeMount
 	)
 
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("test")
+		inputs = []VolumeMount{}
 
 		fakeCreatingContainer = &dbng.CreatingContainer{ID: 42}
 		fakeCreatedContainer = &dbng.CreatedContainer{ID: 42}
@@ -79,7 +82,7 @@ var _ = Describe("ContainerProvider", func() {
 			fakeClock)
 
 		containerProvider = containerProviderFactory.ContainerProviderFor(fakeWorker)
-
+		outputPaths = map[string]string{}
 	})
 
 	Describe("FindOrCreateContainer", func() {
@@ -99,15 +102,16 @@ var _ = Describe("ContainerProvider", func() {
 				Metadata{},
 				ContainerSpec{
 					ImageSpec: imageSpec,
+					Inputs:    inputs,
 				},
 				atc.ResourceTypes{
-					 {
-							Type:    "some-resource",
-							Name:   "custom-type-b",
-							Source: atc.Source{"some": "source"},
-						},
+					{
+						Type:   "some-resource",
+						Name:   "custom-type-b",
+						Source: atc.Source{"some": "source"},
+					},
 				},
-				map[string]string{},
+				outputPaths,
 			)
 		})
 
@@ -121,11 +125,80 @@ var _ = Describe("ContainerProvider", func() {
 
 			BeforeEach(func() {
 				fakeDBContainerFactory.ContainerCreatedReturns(fakeCreatedContainer, nil)
-
 				fakeGardenContainer = new(gfakes.FakeContainer)
 				fakeGardenContainer.HandleReturns("some-handle")
-
 				fakeGardenClient.CreateReturns(fakeGardenContainer, nil)
+			})
+
+			It("returns the newly created container", func() {
+				Expect(fakeGardenClient.CreateCallCount()).To(Equal(1))
+				Expect(container.Handle()).To(Equal("some-handle"))
+			})
+
+			Context("when output paths are specified", func() {
+				var (
+					fakeOutputVolume *wfakes.FakeVolume
+				)
+
+				BeforeEach(func() {
+					outputPaths = map[string]string{"output": "/some/path"}
+					fakeOutputVolume = new(wfakes.FakeVolume)
+					fakeOutputVolume.HandleReturns("output-volume-handle")
+					fakeVolumeClient.FindOrCreateVolumeForContainerReturns(fakeOutputVolume, nil)
+				})
+
+				It("finds or creates the volume using the volume client", func ()  {
+					Expect(fakeVolumeClient.FindOrCreateVolumeForContainerCallCount()).To(Equal(1))
+					_, spec, _, _, outputPath := fakeVolumeClient.FindOrCreateVolumeForContainerArgsForCall(0)
+					s, ok := spec.Strategy.(OutputStrategy)
+					Expect(ok).To(BeTrue())
+					Expect(s.Name).To(Equal("output"))
+					Expect(outputPath).To(Equal("/some/path"))
+				})
+
+				Context("when finding / creating the output volume fails", func() {
+					var focVolumeErr     error
+
+					BeforeEach(func() {
+						focVolumeErr = errors.New("oh noes")
+						fakeVolumeClient.FindOrCreateVolumeForContainerReturns(fakeOutputVolume, focVolumeErr)
+					})
+
+					It("returns the error", func() {
+						Expect(err).To(Equal(focVolumeErr))
+					})
+
+				})
+
+			})
+
+			Context("when inputs are specified on the container spec", func() {
+				var fakeInputVolume *wfakes.FakeVolume
+
+				BeforeEach(func()  {
+						fakeInputVolume = new(wfakes.FakeVolume)
+						fakeInputVolume.PathReturns("/some/volume/path")
+						inputs = []VolumeMount{
+							VolumeMount{
+								Volume : fakeInputVolume,
+								MountPath : "/some/input/path",
+							},
+						}
+
+						fakeCOWVolume := new(wfakes.FakeVolume)
+						fakeCOWVolume.PathReturns("/some/volume/path")
+						fakeVolumeClient.FindOrCreateVolumeForContainerReturns(fakeCOWVolume, nil)
+				})
+
+				It("finds / creates COW volumes from the inputs", func ()  {
+							Expect(fakeVolumeClient.FindOrCreateVolumeForContainerCallCount()).To(Equal(1))
+							_, spec, _, _, mountPath := fakeVolumeClient.FindOrCreateVolumeForContainerArgsForCall(0)
+							s, ok := spec.Strategy.(ContainerRootFSStrategy)
+							Expect(ok).To(BeTrue())
+							Expect(s.Parent).To(Equal(fakeInputVolume))
+							Expect(mountPath).To(Equal("/some/input/path"))
+				})
+
 			})
 
 			Describe("fetching image", func() {
@@ -320,11 +393,11 @@ var _ = Describe("ContainerProvider", func() {
 
 	})
 
-	Describe("FindContainerByHandle", func ()  {
+	Describe("FindContainerByHandle", func() {
 		var (
-					foundContainer Container
-					findErr        error
-					found          bool
+			foundContainer Container
+			findErr        error
+			found          bool
 		)
 
 		JustBeforeEach(func() {
@@ -333,28 +406,103 @@ var _ = Describe("ContainerProvider", func() {
 
 		Context("when the gardenClient returns a container and no error", func() {
 			var (
-				fakeContainer  *gfakes.FakeContainer
-
+				fakeContainer *gfakes.FakeContainer
 			)
 
 			BeforeEach(func() {
 				fakeContainer = new(gfakes.FakeContainer)
-				fakeContainer.HandleReturns("some-handle")
+				fakeContainer.HandleReturns("provider-handle")
 
 				fakeDBVolumeFactory.FindVolumesForContainerReturns([]dbng.CreatedVolume{}, nil)
 
 				fakeDBContainerFactory.FindContainerReturns(&dbng.CreatedContainer{}, true, nil)
 				fakeGardenClient.LookupReturns(fakeContainer, nil)
-
 			})
-			// JustBeforeEach(func() {
-			// 	foundContainer, found, findErr = gardenWorker.LookupContainer(logger, handle)
-			// })
 
-			It("returns the container and no error", func() {
+			It("returns the container", func() {
 				Expect(findErr).NotTo(HaveOccurred())
 				Expect(found).To(BeTrue())
 				Expect(foundContainer.Handle()).To(Equal(fakeContainer.Handle()))
+			})
+
+			Describe("the found container", func() {
+				It("can be destroyed", func() {
+					err := foundContainer.Destroy()
+					Expect(err).NotTo(HaveOccurred())
+
+					By("destroying via garden")
+					Expect(fakeGardenClient.DestroyCallCount()).To(Equal(1))
+					Expect(fakeGardenClient.DestroyArgsForCall(0)).To(Equal("provider-handle"))
+
+					By("no longer heartbeating")
+					fakeClock.Increment(30 * time.Second)
+					Consistently(fakeContainer.SetGraceTimeCallCount).Should(Equal(1))
+				})
+
+				It("performs an initial heartbeat synchronously", func() {
+					Expect(fakeContainer.SetGraceTimeCallCount()).To(Equal(1))
+					Expect(fakeGardenWorkerDB.UpdateExpiresAtOnContainerCallCount()).To(Equal(1))
+				})
+
+				Describe("every 30 seconds", func() {
+					It("heartbeats to the database and the container", func() {
+						fakeClock.Increment(30 * time.Second)
+
+						Eventually(fakeContainer.SetGraceTimeCallCount).Should(Equal(2))
+						Expect(fakeContainer.SetGraceTimeArgsForCall(1)).To(Equal(5 * time.Minute))
+
+						Eventually(fakeGardenWorkerDB.UpdateExpiresAtOnContainerCallCount).Should(Equal(2))
+						handle, interval := fakeGardenWorkerDB.UpdateExpiresAtOnContainerArgsForCall(1)
+						Expect(handle).To(Equal("provider-handle"))
+						Expect(interval).To(Equal(5 * time.Minute))
+
+						fakeClock.Increment(30 * time.Second)
+
+						Eventually(fakeContainer.SetGraceTimeCallCount).Should(Equal(3))
+						Expect(fakeContainer.SetGraceTimeArgsForCall(2)).To(Equal(5 * time.Minute))
+
+						Eventually(fakeGardenWorkerDB.UpdateExpiresAtOnContainerCallCount).Should(Equal(3))
+						handle, interval = fakeGardenWorkerDB.UpdateExpiresAtOnContainerArgsForCall(2)
+						Expect(handle).To(Equal("provider-handle"))
+						Expect(interval).To(Equal(5 * time.Minute))
+					})
+				})
+
+				Describe("releasing", func() {
+					It("sets a final ttl on the container and stops heartbeating", func() {
+						foundContainer.Release(FinalTTL(30 * time.Minute))
+
+						Expect(fakeContainer.SetGraceTimeCallCount()).Should(Equal(2))
+						Expect(fakeContainer.SetGraceTimeArgsForCall(1)).To(Equal(30 * time.Minute))
+
+						Expect(fakeGardenWorkerDB.UpdateExpiresAtOnContainerCallCount()).Should(Equal(2))
+						handle, interval := fakeGardenWorkerDB.UpdateExpiresAtOnContainerArgsForCall(1)
+						Expect(handle).To(Equal("provider-handle"))
+						Expect(interval).To(Equal(30 * time.Minute))
+
+						fakeClock.Increment(30 * time.Second)
+
+						Consistently(fakeContainer.SetGraceTimeCallCount).Should(Equal(2))
+						Consistently(fakeGardenWorkerDB.UpdateExpiresAtOnContainerCallCount).Should(Equal(2))
+					})
+
+					Context("with no final ttl", func() {
+						It("does not perform a final heartbeat", func() {
+							foundContainer.Release(nil)
+
+							Consistently(fakeContainer.SetGraceTimeCallCount).Should(Equal(1))
+							Consistently(fakeGardenWorkerDB.UpdateExpiresAtOnContainerCallCount).Should(Equal(1))
+						})
+					})
+				})
+
+				It("can be released multiple times", func() {
+					foundContainer.Release(nil)
+
+					Expect(func() {
+						foundContainer.Release(nil)
+					}).NotTo(Panic())
+				})
 			})
 
 			Context("when the concourse:volumes property is present", func() {
