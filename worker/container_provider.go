@@ -132,6 +132,8 @@ func (p *containerProvider) FindOrCreateContainer(
 	resourceTypes atc.ResourceTypes,
 	outputPaths map[string]string,
 ) (Container, error) {
+	// find the container using details of container type, e
+
 	return p.createContainer(
 		logger,
 		cancel,

@@ -175,6 +175,14 @@ func (factory *ContainerFactory) FindContainer(
 	return factory.findContainer(handle)
 }
 
+func (factory *ContainerFactory) MarkBuildContainersForDeletion() error {
+	return nil
+}
+
+func (factory *ContainerFactory) FindContainersMarkedForDeletion() ([]*DestroyingContainer, error) {
+	return nil, nil
+}
+
 func (factory *ContainerFactory) createPlanContainer(
 	worker *Worker,
 	build *Build,

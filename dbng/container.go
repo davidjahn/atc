@@ -1,6 +1,9 @@
 package dbng
 
-import sq "github.com/Masterminds/squirrel"
+import (
+	sq "github.com/Masterminds/squirrel"
+	"database/sql"
+)
 
 type ContainerState string
 
@@ -28,14 +31,22 @@ func (container *CreatedContainer) Destroying() (*DestroyingContainer, error) {
 
 	defer tx.Rollback()
 
-	rows, err := psql.Update("containers").
+	var (
+		workerName string
+		handle     sql.NullString
+	)
+
+	err = psql.Update("containers").
 		Set("state", ContainerStateDestroying).
 		Where(sq.Eq{
 			"id":    container.ID,
 			"state": ContainerStateCreated,
 		}).
+		Suffix("RETURNING worker_name, handle").
 		RunWith(tx).
-		Exec()
+		QueryRow().
+		Scan(&workerName, &handle)
+
 	if err != nil {
 		return nil, err
 	}
@@ -45,25 +56,19 @@ func (container *CreatedContainer) Destroying() (*DestroyingContainer, error) {
 		return nil, err
 	}
 
-	affected, err := rows.RowsAffected()
-	if err != nil {
-		return nil, err
-	}
-
-	if affected == 0 {
-		panic("TESTME")
-		return nil, nil
-	}
-
 	return &DestroyingContainer{
-		ID:   container.ID,
-		conn: container.conn,
+		ID:         container.ID,
+		WorkerName: workerName,
+		Handle:     handle,
+		conn:       container.conn,
 	}, nil
 }
 
 type DestroyingContainer struct {
-	ID   int
-	conn Conn
+	ID         int
+	WorkerName string
+	Handle     *string
+	conn       Conn
 }
 
 func (container *DestroyingContainer) Destroy() (bool, error) {
