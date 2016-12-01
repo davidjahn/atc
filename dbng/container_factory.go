@@ -6,6 +6,7 @@ import (
 	sq "github.com/Masterminds/squirrel"
 
 	"github.com/concourse/atc"
+	uuid "github.com/nu7hatch/gouuid"
 )
 
 type ContainerFactory struct {
@@ -35,6 +36,11 @@ func (factory *ContainerFactory) CreateResourceCheckContainer(
 
 	defer tx.Rollback()
 
+	handle, err := uuid.NewV4()
+	if err != nil {
+		return nil, err
+	}
+
 	var containerID int
 	err = psql.Insert("containers").
 		Columns(
@@ -42,12 +48,14 @@ func (factory *ContainerFactory) CreateResourceCheckContainer(
 			"resource_config_id",
 			"type",
 			"step_name",
+			"handle",
 		).
 		Values(
 			worker.Name,
 			resourceConfig.ID,
 			"check",
 			stepName,
+			handle.String(),
 		).
 		Suffix("RETURNING id").
 		RunWith(tx).
@@ -64,14 +72,15 @@ func (factory *ContainerFactory) CreateResourceCheckContainer(
 	}
 
 	return &CreatingContainer{
-		ID:   containerID,
-		conn: factory.conn,
+		ID:         containerID,
+		Handle:     handle.String(),
+		WorkerName: worker.Name,
+		conn:       factory.conn,
 	}, nil
 }
 
 func (factory *ContainerFactory) ContainerCreated(
 	container *CreatingContainer,
-	gardenHandle string,
 ) (*CreatedContainer, error) {
 	tx, err := factory.conn.Begin()
 	if err != nil {
@@ -82,7 +91,6 @@ func (factory *ContainerFactory) ContainerCreated(
 
 	rows, err := psql.Update("containers").
 		Set("state", ContainerStateCreated).
-		Set("handle", gardenHandle).
 		Where(sq.Eq{
 			"id":    container.ID,
 			"state": ContainerStateCreating,
@@ -109,8 +117,10 @@ func (factory *ContainerFactory) ContainerCreated(
 	}
 
 	return &CreatedContainer{
-		ID:   container.ID,
-		conn: factory.conn,
+		ID:         container.ID,
+		Handle:     container.Handle,
+		WorkerName: container.WorkerName,
+		conn:       factory.conn,
 	}, nil
 }
 
@@ -126,6 +136,11 @@ func (factory *ContainerFactory) CreateResourceGetContainer(
 
 	defer tx.Rollback()
 
+	handle, err := uuid.NewV4()
+	if err != nil {
+		return nil, err
+	}
+
 	var containerID int
 	err = psql.Insert("containers").
 		Columns(
@@ -133,12 +148,14 @@ func (factory *ContainerFactory) CreateResourceGetContainer(
 			"resource_cache_id",
 			"type",
 			"step_name",
+			"handle",
 		).
 		Values(
 			worker.Name,
 			resourceCache.ID,
 			"get",
 			stepName,
+			handle.String(),
 		).
 		Suffix("RETURNING id").
 		RunWith(tx).
@@ -155,8 +172,10 @@ func (factory *ContainerFactory) CreateResourceGetContainer(
 	}
 
 	return &CreatingContainer{
-		ID:   containerID,
-		conn: factory.conn,
+		ID:         containerID,
+		Handle:     handle.String(),
+		WorkerName: worker.Name,
+		conn:       factory.conn,
 	}, nil
 }
 
@@ -188,6 +207,11 @@ func (factory *ContainerFactory) createPlanContainer(
 
 	defer tx.Rollback()
 
+	handle, err := uuid.NewV4()
+	if err != nil {
+		return nil, err
+	}
+
 	var containerID int
 	err = psql.Insert("containers").
 		// TODO: should metadata just be JSON?
@@ -197,6 +221,7 @@ func (factory *ContainerFactory) createPlanContainer(
 			"plan_id",
 			"type",
 			"step_name",
+			"handle",
 		).
 		Values(
 			worker.Name,
@@ -204,6 +229,7 @@ func (factory *ContainerFactory) createPlanContainer(
 			string(planID),
 			meta.Type,
 			meta.Name,
+			handle.String(),
 		).
 		Suffix("RETURNING id").
 		RunWith(tx).
@@ -220,8 +246,10 @@ func (factory *ContainerFactory) createPlanContainer(
 	}
 
 	return &CreatingContainer{
-		ID:   containerID,
-		conn: factory.conn,
+		ID:         containerID,
+		Handle:     handle.String(),
+		WorkerName: worker.Name,
+		conn:       factory.conn,
 	}, nil
 }
 
@@ -233,16 +261,20 @@ func (factory *ContainerFactory) findContainer(handle string) (*CreatedContainer
 
 	defer tx.Rollback()
 
-	var containerID int
+	var (
+		containerID int
+		workerName  string
+	)
 	err = psql.Select("id").
 		From("containers").
 		Where(sq.Eq{
 			"state":  ContainerStateCreated,
 			"handle": handle,
 		}).
+		Suffix("RETURNING id, worker_name").
 		RunWith(tx).
 		QueryRow().
-		Scan(&containerID)
+		Scan(&containerID, &workerName)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, false, nil
@@ -256,7 +288,9 @@ func (factory *ContainerFactory) findContainer(handle string) (*CreatedContainer
 	}
 
 	return &CreatedContainer{
-		ID:   containerID,
-		conn: factory.conn,
+		ID:         containerID,
+		Handle:     handle,
+		WorkerName: workerName,
+		conn:       factory.conn,
 	}, true, nil
 }
